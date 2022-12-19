@@ -39,7 +39,7 @@
     	    </intent-filter>
         </activity>
         <activity
-            android:theme="@style/Theme.AppCompat.DayNight"
+            android:theme="@style/Theme.AppCompat.DayNight.NoActionBar"
             android:excludeFromRecents="true"
             android:name=".LoriePreferences" 
             android:supportsPictureInPicture="false"
