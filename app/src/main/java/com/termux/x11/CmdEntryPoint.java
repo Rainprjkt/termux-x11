@@ -23,6 +23,8 @@ import android.view.Surface;
 import androidx.annotation.Keep;
 
 import java.io.DataInputStream;
+import java.io.OutputStream;
+import java.io.PrintStream;
 import java.net.ConnectException;
 import java.net.InetAddress;
 import java.net.ServerSocket;
@@ -76,7 +78,12 @@ public class CmdEntryPoint extends ICmdEntryInterface.Stub {
 
         try {
             ctx.sendBroadcast(intent);
-        } catch (IllegalArgumentException e) {
+        } catch (Exception e) {
+            if (e instanceof NullPointerException && ctx == null)
+                Log.i("Broadcast", "Context is null, falling back to manual broadcasting");
+            else
+                Log.e("Broadcast", "Falling back to manual broadcasting, failed to broadcast intent through Context:", e);
+
             String packageName;
             try {
                 packageName = android.app.ActivityThread.getPackageManager().getPackagesForUid(getuid())[0];
@@ -176,18 +183,27 @@ public class CmdEntryPoint extends ICmdEntryInterface.Stub {
     /** @noinspection DataFlowIssue*/
     @SuppressLint("DiscouragedPrivateApi")
     public static Context createContext() {
+        Context context = null;
+        PrintStream err = System.err;
         try {
             java.lang.reflect.Field f = Class.forName("sun.misc.Unsafe").getDeclaredField("theUnsafe");
             f.setAccessible(true);
             Object unsafe = f.get(null);
-            return ((android.app.ActivityThread) Class.
+            // Hiding harmless framework errors, like this:
+            // java.io.FileNotFoundException: /data/system/theme_config/theme_compatibility.xml: open failed: ENOENT (No such file or directory)
+            System.setErr(new PrintStream(new OutputStream() { public void write(int arg0) {} }));
+            context = ((android.app.ActivityThread) Class.
                     forName("sun.misc.Unsafe").
                     getMethod("allocateInstance", Class.class).
                     invoke(unsafe, android.app.ActivityThread.class))
                     .getSystemContext();
         } catch (Exception e) {
-            throw new RuntimeException(e);
+            Log.e("Context", "Failed to instantiate context:", e);
+            context = null;
+        } finally {
+            System.setErr(err);
         }
+        return context;
     }
 
     public static native boolean start(String[] args);
